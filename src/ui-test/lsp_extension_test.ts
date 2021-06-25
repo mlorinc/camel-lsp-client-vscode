@@ -5,14 +5,11 @@ import {
 	By,
 	EditorView,
 	ExtensionsViewItem,
-	ExtensionsViewSection,
-	SideBarView,
 	until,
 	VSBrowser,
 	WebDriver
 } from 'vscode-extension-tester';
 import {
-	DefaultWait,
 	Dialog,
 	Marketplace,
 	StatusBarExt
@@ -25,16 +22,12 @@ describe('Language Support for Apache Camel extension', function () {
 	const LSP_STATUS_BAR_MESSAGE: string = 'Apache Camel Language Server started';
 
 	describe('Extensions view', function () {
-
+		this.timeout(30000);
 		let marketplace: Marketplace;
-		let section: ExtensionsViewSection;
 		let item: ExtensionsViewItem;
 
 		before(async function () {
-			this.timeout(10000);
-			marketplace = await Marketplace.open();
-			await DefaultWait.sleep(1000);
-			section = await new SideBarView().getContent().getSection('Installed') as ExtensionsViewSection;
+			marketplace = await Marketplace.open(this.timeout());
 		});
 
 		after(async function () {
@@ -43,30 +36,25 @@ describe('Language Support for Apache Camel extension', function () {
 		});
 
 		it('Find extension', async function () {
-			this.timeout(10000);
-			item = await section.findItem(`@installed ${pjson.displayName}`);
+			item = await marketplace.findExtension(`@installed ${pjson.displayName}`);
 		});
 
 		it('Extension is installed', async function () {
-			this.timeout(5000);
 			const installed = await item.isInstalled();
 			assert.isTrue(installed);
 		});
 
 		it('Verify display name', async function () {
-			this.timeout(5000);
 			const title = await item.getTitle();
 			assert.equal(title, `${pjson.displayName}`);
 		});
 
 		it('Verify description', async function () {
-			this.timeout(5000);
 			const desc = await item.getDescription();
 			assert.equal(desc, `${pjson.description}`);
 		});
 
 		it('Verify version', async function () {
-			this.timeout(5000);
 			const version = await item.getVersion();
 			assert.equal(version, `${pjson.version}`);
 		});
