@@ -1,5 +1,5 @@
-import { EditorView, TextEditor, ContentAssist, BottomBarPanel, MarkerType, ContentAssistItem, Workbench, InputBox, TitleBar, VSBrowser } from 'vscode-extension-tester';
-import { WaitUntil, DefaultWait } from 'vscode-uitests-tooling';
+import { EditorView, BottomBarPanel, MarkerType, ContentAssistItem, TitleBar, VSBrowser } from 'vscode-extension-tester';
+import { WaitUntil, DefaultWait, Workbench, ContentAssist, TextEditor } from 'vscode-uitests-tooling';
 import * as path from 'path';
 import { assert } from 'chai';
 
@@ -14,8 +14,6 @@ describe('XML DSL support', function () {
 	const _setup = function (camel_xml: string) {
 		return async function () {
 			this.timeout(20000);
-			await configureToNotUseNativeDialog();
-
 			const editorView = new EditorView();
 			await editorView.closeAllEditors();
 			const absoluteCamelXmlPath = path.join(__dirname, '../../../src/ui-test/resources', camel_xml);
@@ -24,23 +22,23 @@ describe('XML DSL support', function () {
 	};
 
 	async function openFile(fileToOpenAbsolutePath?: string): Promise<void> {
-		await new TitleBar().select('File', 'Open File...');
-		const input = await InputBox.create();
-		await input.clear();
-		await input.setText(fileToOpenAbsolutePath);
-		await input.confirm();
+		await new Workbench().openFile(fileToOpenAbsolutePath);
 	}
 
 	const _clean = async function () {
-		this.timeout(6000);
-		const titleBar = new TitleBar();
-		await titleBar.select('File', 'Revert File');
+		this.timeout(15000);
 		const driver = VSBrowser.instance.driver;
 		await driver.wait(async function () {
 			const editor = new TextEditor();
-			return !(await editor.isDirty());
+			if (await editor.isDirty() === false) {
+				return true;
+			}
+
+			await new TitleBar().select('File', 'Revert File');
+			return false;
 		});
-		await titleBar.select('File', 'Close Editor');
+
+		await new EditorView().closeAllEditors();
 	};
 
 	describe('Camel URI code completion', function () {
@@ -62,7 +60,7 @@ describe('XML DSL support', function () {
 			await editor.typeText(3, URI_POSITION, 'timer');
 			contentAssist = await editor.toggleContentAssist(true) as ContentAssist;
 			await new WaitUntil().assistHasItems(contentAssist, DefaultWait.TimePeriod.MEDIUM);
-			const timer = await contentAssist.getItem('timer');
+			const timer = await contentAssist.getItem('timer:timerName');
 			assert.equal(await getTextExt(timer), 'timer:timerName');
 			await timer.click();
 
@@ -90,7 +88,7 @@ describe('XML DSL support', function () {
 			await editor.typeText(3, URI_POSITION + 24, '&amp;exchange');
 			contentAssist = await editor.toggleContentAssist(true) as ContentAssist;
 			await new WaitUntil().assistHasItems(contentAssist, DefaultWait.TimePeriod.MEDIUM);
-			const exchange = await contentAssist.getItem('exchange');
+			const exchange = await contentAssist.getItem('exchangePattern');
 			assert.equal(await getTextExt(exchange), 'exchangePattern');
 			await exchange.click();
 
@@ -99,7 +97,7 @@ describe('XML DSL support', function () {
 			await editor.typeText(3, URI_POSITION + 45, 'In');
 			contentAssist = await editor.toggleContentAssist(true) as ContentAssist;
 			await new WaitUntil().assistHasItems(contentAssist, DefaultWait.TimePeriod.MEDIUM);
-			const inOnly = await contentAssist.getItem('In');
+			const inOnly = await contentAssist.getItem('InOnly');
 			assert.equal(await getTextExt(inOnly), 'InOnly');
 			await inOnly.click();
 
@@ -113,13 +111,13 @@ describe('XML DSL support', function () {
 		after(_clean);
 
 		it('Duplicate endpoint options are filtered out', async function () {
-			this.timeout(30000);
+			this.timeout(60000);
 			const editor = new TextEditor();
 
 			await editor.typeText(3, URI_POSITION, 'timer');
 			contentAssist = await editor.toggleContentAssist(true) as ContentAssist;
 			await new WaitUntil().assistHasItems(contentAssist, DefaultWait.TimePeriod.MEDIUM);
-			const timer = await contentAssist.getItem('timer');
+			const timer = await contentAssist.getItem('timer:timerName');
 			await timer.click();
 
 			await editor.typeText(3, URI_POSITION + 15, '?');
@@ -152,7 +150,7 @@ describe('XML DSL support', function () {
 			await editor.typeText(3, URI_POSITION, 'timer');
 			contentAssist = await editor.toggleContentAssist(true) as ContentAssist;
 			await new WaitUntil().assistHasItems(contentAssist, DefaultWait.TimePeriod.MEDIUM);
-			const timer = await contentAssist.getItem('timer');
+			const timer = await contentAssist.getItem('timer:timerName');
 			await timer.click();
 
 			await editor.typeText(3, URI_POSITION + 15, '?');
@@ -227,11 +225,3 @@ describe('XML DSL support', function () {
 		return name.split('\n')[0];
 	}
 });
-
-async function configureToNotUseNativeDialog() {
-	const settingsEditor = await new Workbench().openSettings();
-	const dialogStyleSetting = await settingsEditor.findSetting('Dialog Style', 'Window');
-	await dialogStyleSetting.setValue('custom');
-	const filesDialogSetting = await settingsEditor.findSetting('Enable', 'Files', 'Simple Dialog');
-	await filesDialogSetting.setValue(true);
-}
